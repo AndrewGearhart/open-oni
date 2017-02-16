@@ -1,3 +1,6 @@
+FROM ubuntu:latest
+MAINTAINER PSU Developers <something@psu.edu>
+
 set -u
 source docker/urllib.sh
 
