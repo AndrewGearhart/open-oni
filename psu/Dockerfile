@@ -1,31 +1,31 @@
 FROM ubuntu:latest
 MAINTAINER PSU Developers <something@psu.edu>
 
-set -u
-source docker/urllib.sh
+RUN set -u
+RUN source docker/urllib.sh
 
-DB_READY=0
-MAX_TRIES=50
-MYSQL_ROOT_PASSWORD=123456
+ENV DB_READY 0
+ENV MAX_TRIES 50
+ENV MYSQL_ROOT_PASSWORD 123456
 
-PORT=${DOCKERPORT:-80}
+ENV PORT=${DOCKERPORT:-80}
 
-APP_URL=${APP_URL:-}
+ENV APP_URL=${APP_URL:-}
 if [ -z "$APP_URL" ]; then
   echo "Please set the APP_URL environment variable"
   echo "e.g., 'export APP_URL=\"http://192.168.56.99\"'"
   exit -1
 fi
 
-proto=$(_protocol $APP_URL)
+ENV proto=$(_protocol $APP_URL)
 if [[ $proto != "http" && $proto != "https" ]]; then
   echo "ERROR - Your APP_URL needs a valid protocol (http://... or https://...)"
   exit -1
 fi
 
-SOLR=4.10.4
-SOLRDELAY=${SOLRDELAY:-10} # interval to wait for dependent docker services to initialize
-TRIES=0
+ENV SOLR=4.10.4
+ENV SOLRDELAY=${SOLRDELAY:-10} # interval to wait for dependent docker services to initialize
+ENV TRIES=0
 
 docker stop openoni-dev || true
 docker rm openoni-dev || true
