@@ -1,0 +1,22 @@
+
+echo "Starting openoni for development ..."
+# Make sure subdirs are built
+mkdir -p data/batches data/cache data/bib
+docker run -itd \
+  -p $PORT:80 \
+  -e APP_URL=$APP_URL \
+  --name openoni-dev \
+  --link openoni-dev-mysql:db \
+  --link openoni-dev-solr:solr \
+  --link openoni-dev-rais:rais \
+  -v $(pwd):/opt/openoni:Z \
+  -v $(pwd)/docker/data:/opt/openoni/data:z \
+  open-oni:dev
+
+port=$(_port $APP_URL)
+dport=${DOCKERPORT:-}
+if [[ $port != $dport ]]; then
+  echo
+  echo "[31;1mWARNING[0m - APP_URL's port ($port) doesn't match DOCKERPORT ($dport)"
+  echo "This may be valid in certain setups, but could indicate a problem."
+fi

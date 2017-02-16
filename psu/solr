@@ -1,0 +1,12 @@
+SOLR_STATUS=$(docker inspect --type=container --format="{{ .State.Running }}" openoni-dev-solr 2> /dev/null)
+if [ -z "$SOLR_STATUS" ]; then
+  echo "Starting solr ..."
+  docker run -d \
+    --name openoni-dev-solr \
+    -v $(pwd)/docker/solr/schema.xml:/opt/solr/example/solr/collection1/conf/schema.xml:Z \
+    -v $(pwd)/docker/solr/solrconfig.xml:/opt/solr/example/solr/collection1/conf/solrconfig.xml:Z \
+    --volumes-from openoni-dev-data-solr \
+    makuk66/docker-solr:$SOLR && sleep $SOLRDELAY
+else
+  container_start "openoni-dev-solr" $SOLR_STATUS
+fi

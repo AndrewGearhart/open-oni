@@ -1,0 +1,59 @@
+# Make persistent data containers
+# If these containers are removed, you will lose all mysql and solr data
+MYSQL_DATA_STATUS=$(docker inspect --type=container --format="{{ .State.Running }}" openoni-dev-data-mysql 2> /dev/null)
+if [ -z "$MYSQL_DATA_STATUS" ]; then
+  echo "Creating a data container for mysql ..."
+  docker create -v /var/lib/mysql --name openoni-dev-data-mysql mysql
+fi
+SOLR_DATA_STATUS=$(docker inspect --type=container --format="{{ .State.Running }}" openoni-dev-data-solr 2> /dev/null)
+if [ -z "$SOLR_DATA_STATUS" ]; then
+  echo "Creating a data container for solr ..."
+  docker create -v /opt/solr --name openoni-dev-data-solr makuk66/docker-solr:$SOLR
+fi
+
+# Make containers for mysql and solr
+echo "Building openoni for development"
+docker build -t open-oni:dev -f docker/Dockerfile-dev docker/
+
+# Copy latest openoni MySQL config into directory with dev overrides
+cp $(pwd)/conf/mysql/openoni.cnf $(pwd)/docker/mysql/
+
+MYSQL_STATUS=$(docker inspect --type=container --format="{{ .State.Running }}" openoni-dev-mysql 2> /dev/null)
+if [ -z "$MYSQL_STATUS" ]; then
+  echo "Starting mysql ..."
+  docker run -d \
+    --name openoni-dev-mysql \
+    -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+    -e MYSQL_DATABASE=openoni \
+    -e MYSQL_USER=openoni \
+    -e MYSQL_PASSWORD=openoni \
+    --volumes-from openoni-dev-data-mysql \
+    -v /$(pwd)/docker/mysql:/etc/mysql/conf.d:Z \
+    mysql
+
+  while [ $DB_READY == 0 ]
+  do
+   if
+     ! docker exec openoni-dev-mysql mysql -uroot -p$MYSQL_ROOT_PASSWORD \
+       -e 'ALTER DATABASE openoni charset=utf8' > /dev/null 2>/dev/null
+   then
+     sleep 5
+     let TRIES++
+     echo "Looks like we're still waiting for MySQL ... 5 more seconds ... retry $TRIES of $MAX_TRIES"
+     if [ "$TRIES" = "$MAX_TRIES" ]
+     then
+      echo "Looks like we couldn't get MySQL running. Could you check settings and try again?"
+      exit 2
+     fi
+   else
+     DB_READY=1
+   fi
+  done
+
+  # set up access to a test database, for masochists
+  echo "setting up a test database ..."
+  docker exec openoni-dev-mysql mysql -u root --password=$MYSQL_ROOT_PASSWORD -e 'USE mysql;
+  GRANT ALL on test_openoni.* TO "openoni"@"%" IDENTIFIED BY "openoni";';
+else
+  container_start "openoni-dev-mysql" $MYSQL_STATUS
+fi
