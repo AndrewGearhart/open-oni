@@ -11,14 +11,14 @@ ENV MYSQL_ROOT_PASSWORD 123456
 ENV PORT=${DOCKERPORT:-80}
 
 ENV APP_URL=${APP_URL:-}
-if [ -z "$APP_URL" ]; then
+RUN if [ -z "$APP_URL" ]; then
   echo "Please set the APP_URL environment variable"
   echo "e.g., 'export APP_URL=\"http://192.168.56.99\"'"
   exit -1
 fi
 
 ENV proto=$(_protocol $APP_URL)
-if [[ $proto != "http" && $proto != "https" ]]; then
+RUN if [[ $proto != "http" && $proto != "https" ]]; then
   echo "ERROR - Your APP_URL needs a valid protocol (http://... or https://...)"
   exit -1
 fi
