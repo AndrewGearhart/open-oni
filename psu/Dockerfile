@@ -27,11 +27,11 @@ ENV SOLR=4.10.4
 ENV SOLRDELAY=${SOLRDELAY:-10} # interval to wait for dependent docker services to initialize
 ENV TRIES=0
 
-docker stop openoni-dev || true
-docker rm openoni-dev || true
+RUN docker stop openoni-dev || true
+RUN docker rm openoni-dev || true
 
 # $1 = name of container, $2 = container running status
-container_start () {
+RUN container_start () {
   echo "Existing $1 container found"
   if [ "$2" == "false" ]; then
     docker start $1
@@ -39,11 +39,11 @@ container_start () {
 }
 
 # Make sure settings_local.py exists so the app doesn't crash
-if [ ! -f onisite/settings_local.py ]; then
+RUN if [ ! -f onisite/settings_local.py ]; then
   touch onisite/settings_local.py
 fi
 
 # Make sure we have a default urls.py
-if [ ! -f onisite/urls.py ]; then
+RUN if [ ! -f onisite/urls.py ]; then
   cp onisite/urls_example.py onisite/urls.py
 fi
