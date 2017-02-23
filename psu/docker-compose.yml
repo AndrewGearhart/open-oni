@@ -2,17 +2,21 @@ version: '1'
 
 services:
   mysql:
-    image:
+    image: mysql
     environment:
+		- MYSQL_ROOT_PASSWORD=12345
+		- MYSQL_DATABASE=openoni
+		- MYSQL_USER=openoni
+		- MYSQL_PASSWORD=openoni
     volumes:
-    ports:
+		- datavolume:/var/lib/mysql
   solr:
-    image:
+    image: solr
     environment:
     volumes:
     ports:
   rais:
-    image:
+    image: uolibraries/rais
     environment:
     volumes:
     ports:
