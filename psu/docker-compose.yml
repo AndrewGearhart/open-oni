@@ -22,6 +22,7 @@ services:
     volumes:
   openoni:
     image:
+      amg32/open-oni
     environment:
     volumes:
     ports:
