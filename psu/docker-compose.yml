@@ -16,6 +16,8 @@ services:
     image: makuk66/docker-solr
     environment:
     volumes:
+      $(pwd)/docker/solr/schema.xml:/opt/solr/example/solr/collection1/conf/schema.xml:Z
+      $(pwd)/docker/solr/solrconfig.xml:/opt/solr/example/solr/collection1/conf/solrconfig.xml:Z
   rais:
     image:
     environment:
