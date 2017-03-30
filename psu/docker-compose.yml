@@ -13,15 +13,20 @@ services:
       - openoni-dev-data-mysql:/var/lib/mysql
       - /$(pwd)/docker/mysql:/etc/mysql/conf.d:Z
   solr:
-    image: makuk66/docker-solr
+    image: 
+      makuk66/docker-solr
     environment:
     volumes:
       $(pwd)/docker/solr/schema.xml:/opt/solr/example/solr/collection1/conf/schema.xml:Z
       $(pwd)/docker/solr/solrconfig.xml:/opt/solr/example/solr/collection1/conf/solrconfig.xml:Z
   rais:
-    image:
+    image: 
+      uolibraries/rais:2.7.0
     environment:
+      RAIS_IIIFURL="$APP_URL/images/iiif"
+      RAIS_TILECACHELEN=250
     volumes:
+      $(pwd)/docker/data/batches:/var/local/images:z
   openoni:
     image:
       amg32/open-oni
