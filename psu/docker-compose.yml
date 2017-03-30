@@ -13,7 +13,7 @@ services:
       - openoni-dev-data-mysql:/var/lib/mysql
       - /$(pwd)/docker/mysql:/etc/mysql/conf.d:Z
   solr:
-    image:
+    image: makuk66/docker-solr
     environment:
     volumes:
   rais:
