@@ -30,6 +30,8 @@ services:
   openoni:
     image:
       amg32/open-oni
+    command:
+      mkdir -p data/batches data/cache data/bib
     environment:
     volumes:
       $(pwd):/opt/openoni:Z
