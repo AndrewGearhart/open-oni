@@ -35,7 +35,7 @@ services:
       $(pwd):/opt/openoni:Z
       $(pwd)/docker/data:/opt/openoni/data:z
     ports:
-      - "80"
+      - "80:80"
     links:
       - mysql
       - solr
