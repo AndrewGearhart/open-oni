@@ -11,7 +11,7 @@ services:
       MYSQL_PASSWORD=openoni
     volumes:
       - openoni-dev-data-mysql:/var/lib/mysql
-      - /$(pwd)/docker/mysql:/etc/mysql/conf.d:Z
+      - $(pwd)/docker/mysql:/etc/mysql/conf.d:Z
   solr:
     image: 
       makuk66/docker-solr
