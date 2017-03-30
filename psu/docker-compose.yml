@@ -32,6 +32,8 @@ services:
       amg32/open-oni
     environment:
     volumes:
+      $(pwd):/opt/openoni:Z
+      $(pwd)/docker/data:/opt/openoni/data:z
     ports:
       - "80"
     links:
