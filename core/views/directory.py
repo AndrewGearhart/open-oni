@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import Http404, HttpResponse, HttpResponseServerError
 from django.db.models import Max, Min, Q
-from django.shortcuts import render_to_response
+from django.shortcuts import render
 from django.template import RequestContext
 from django.utils.encoding import smart_str
 
@@ -21,88 +21,17 @@ from core.utils.url import unpack_url_path
 
 @cors
 @cache_page(settings.DEFAULT_TTL_SECONDS)
-def newspapers(request, state=None, format='html'):
-    if state and state != "all_states":
-        state = unpack_url_path(state)
-        if state is None:
-            raise Http404
-        else:
-            state = state.title()
-    else:
-        state = request.GET.get("state", None)
-
-    language = request.GET.get('language', None)
-    if language:
-        language_display = models.Language.objects.get(code__contains=language).name
-    ethnicity = request.GET.get('ethnicity', None)
-
-    if not state and not language and not ethnicity:
-        page_title = 'All Digitized Newspapers'
-    else:
-        page_title = 'Results: Digitized Newspapers'
-
+def newspapers(request, city=None, format='html'):
+    page_title = 'All Titles'
     titles = models.Title.objects.filter(has_issues=True)
     titles = titles.annotate(first=Min('issues__date_issued'))
     titles = titles.annotate(last=Max('issues__date_issued'))
 
-    if state:
-        titles = titles.filter(places__state__iexact=state)
-
-    if language:
-        titles = titles.filter(languages__code__contains=language)
-
-    if ethnicity:
-        try:
-            e = models.Ethnicity.objects.get(name=ethnicity)
-            ethnicity_filter = Q(subjects__heading__icontains=ethnicity)
-            for s in e.synonyms.all():
-                ethnicity_filter |= Q(subjects__heading__icontains=s.synonym)
-            titles = titles.filter(ethnicity_filter)
-        except models.Ethnicity.DoesNotExist:
-            pass
-
-    _newspapers_by_state = {}
-    for title in titles:
-        if state:
-            _newspapers_by_state.setdefault(state, set()).add(title)
-        else:
-            for place in title.places.all():
-                if place.state:
-                    _newspapers_by_state.setdefault(place.state, set()).add(title)
-
-    newspapers_by_state = [(s, sorted(t, key=lambda title: title.name_normal)) for s, t in sorted(_newspapers_by_state.iteritems())]
+    sorted_titles = sorted(titles, key=lambda title: title.name_normal)
     crumbs = list(settings.BASE_CRUMBS)
 
     if format == "html":
-        return render_to_response("newspapers.html",
-                                  dictionary=locals(),
-                                  context_instance=RequestContext(request))
-    elif format == "txt":
-        host = request.get_host()
-        return render_to_response("newspapers.txt",
-                                  dictionary=locals(),
-                                  context_instance=RequestContext(request),
-                                  content_type="text/plain")
-    elif format == "csv":
-        csv_header_labels = ('Persistent Link', 'State', 'Title', 'LCCN', 'OCLC',
-                             'ISSN', 'No. of Issues', 'First Issue Date',
-                             'Last Issue Date', 'More Info')
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="openoni_newspapers.csv"'
-        writer = csv.writer(response)
-        writer.writerow(csv_header_labels)
-        for state, titles in newspapers_by_state:
-            for title in titles:
-                writer.writerow(('%s%s' % (settings.BASE_URL,
-                                                  reverse('openoni_issues_title',
-                                                           kwargs={'lccn': title.lccn}),),
-                                 state, title, title.lccn or '', title.oclc or '',
-                                 title.issn or '', title.issues.count(), title.first,
-                                 title.last,
-                                 '%s%s' % (settings.BASE_URL, reverse('openoni_title_essays',
-                                                           kwargs={'lccn': title.lccn}),),))
-        return response
-
+        return render(request, 'newspapers.html', locals())
     elif format == "json":
         host = request.get_host()
 
@@ -114,13 +43,12 @@ def newspapers(request, state=None, format='html'):
             "collections": [],
         }
 
-        for state, titles in newspapers_by_state:
-            for title in titles:
-                results["collections"].append({
-                    "@id": settings.BASE_URL + title.json_url,
-                    "@type": "sc:Collection",
-                    "label": title.display_name
-                })
+        for title in sorted_titles:
+            results["collections"].append({
+                "@id": settings.BASE_URL + title.json_url,
+                "@type": "sc:Collection",
+                "label": title.display_name
+            })
 
         return HttpResponse(json.dumps(results, indent=2), content_type='application/json')
     else:
@@ -147,9 +75,8 @@ def newspapers_atom(request):
         feed_updated = datetime.datetime.now()
 
     host = request.get_host()
-    return render_to_response("newspapers.xml", dictionary=locals(),
-                              content_type="application/atom+xml",
-                              context_instance=RequestContext(request))
+    return render(request, 'newspapers.xml', locals(),
+                  content_type='application/atom+xml')
 
 
 @cors
@@ -242,10 +169,8 @@ def search_titles_results(request):
     if format == 'atom':
         feed_url = settings.BASE_URL + request.get_full_path()
         updated = rfc3339(datetime.datetime.now())
-        return render_to_response('search/search_titles_results.xml',
-                                  dictionary=locals(),
-                                  context_instance=RequestContext(request),
-                                  content_type='application/atom+xml')
+        return render(request, 'search/search_titles_results.xml', locals(),
+                      content_type='application/atom+xml')
 
     elif format == 'json':
         results = {
@@ -276,9 +201,7 @@ def search_titles_results(request):
     collapse_search_tab = True
 
     form = forms.SearchResultsForm({"rows": rows, "sort": sort})
-    return render_to_response('search/search_titles_results.html',
-                              dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, 'search/search_titles_results.html', locals())
 
 
 @cache_page(settings.DEFAULT_TTL_SECONDS)

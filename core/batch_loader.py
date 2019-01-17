@@ -24,6 +24,7 @@ from django.conf import settings
 from django.core import management
 
 from core import models
+from core.utils.utils import set_fulltext_range
 from core.models import Batch, Issue, Title, Awardee, Page, OCR
 from core.models import LoadBatchEvent
 from core.ocr_extractor import ocr_extractor
@@ -103,12 +104,22 @@ class BatchLoader(object):
         """
         self.pages_processed = 0
 
-        logging.info("loading batch at %s", batch_path)
-        dirname, batch_name = os.path.split(batch_path.rstrip("/"))
+        # Trailing slash breaks comparison to link_name below, so strip off
+        batch_path = batch_path.rstrip("/")
+
+        _logger.info("loading batch at %s", batch_path)
+        dirname, batch_name = os.path.split(batch_path)
         if dirname:
             batch_source = None
             link_name = os.path.join(settings.BATCH_STORAGE, batch_name)
-            if batch_path != link_name and not os.path.islink(link_name):
+
+            # Create symlink if paths don't match, symlink not already there,
+            # and batch_path wasn't input with a BATCH_STORAGE symlink path
+            if (batch_path != link_name and not os.path.islink(link_name)
+                and not (os.path.islink(settings.BATCH_STORAGE)
+                    and batch_path.startswith(os.path.realpath(settings.BATCH_STORAGE))
+                    )
+                ):
                 _logger.info("creating symlink %s -> %s", batch_path, link_name)
                 os.symlink(batch_path, link_name)
         else:
@@ -192,6 +203,8 @@ class BatchLoader(object):
             batch.released = datetime.now()
             batch.save()
 
+        # updates the min and max years of all titles
+        set_fulltext_range()
         return batch
 
     def _get_batch(self, batch_name, batch_source=None, create=False):
@@ -253,7 +266,7 @@ class BatchLoader(object):
             title = Title.objects.get(lccn=lccn)
         except Exception, e:
             url = settings.MARC_RETRIEVAL_URLFORMAT % lccn
-            logging.info("attempting to load marc record from %s", url)
+            _logger.info("attempting to load marc record from %s", url)
             management.call_command('load_titles', url)
             title = Title.objects.get(lccn=lccn)
 
@@ -270,7 +283,7 @@ class BatchLoader(object):
             text = mods_note.xpath('string(.)')
             note = models.IssueNote(type=type, label=label, text=text)
             notes.append(note)
-        issue.notes = notes
+        issue.notes.set(notes, bulk=False)
         issue.save()
 
         # attach pages: lots of logging because it's expensive
@@ -346,7 +359,7 @@ class BatchLoader(object):
             text = mods_note.xpath('string(.)').strip()
             note = models.PageNote(type=type, label=label, text=text)
             notes.append(note)
-        page.notes = notes
+        page.notes.set(notes, bulk=False)
 
 
         # there's a level indirection between the METS structmap and the
@@ -444,7 +457,7 @@ class BatchLoader(object):
         f.close()
 
     def process_coordinates(self, batch_path):
-        logging.info("process word coordinates for batch at %s", batch_path)
+        _logger.info("process word coordinates for batch at %s", batch_path)
         dirname, batch_name = os.path.split(batch_path.rstrip("/"))
         if dirname:
             batch_source = None
@@ -490,6 +503,8 @@ class BatchLoader(object):
             if os.path.islink(link_name):
                 _logger.info("Removing symlink %s", link_name)
                 os.remove(link_name)
+            # updates the min and max years of all titles
+            set_fulltext_range()
         except Exception, e:
             msg = "purge failed: %s" % e
             _logger.error(msg)

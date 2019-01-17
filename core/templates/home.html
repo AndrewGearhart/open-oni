@@ -7,6 +7,10 @@
 {% load image_urls %}
  
 {% block content %}
+
+<!-- If you override the "content" block, you *must* include this!! -->
+<div id="skip_menu"></div>
+
 <div class="row">
   <div class="col-md-4">
     <h2>Welcome to the {{ project_name }}</h2>
@@ -17,7 +21,7 @@
   <div class="col-md-8">
     {% if page %}
       <h3>
-        <a href='{% url 'openoni_search_pages_results' %}?dateFilterType=range&date1={{date|date:"m/d/Y" }}&date2={{date|date:"m/d/Y"}}/'>{{ heading }}</a>
+        <a href='{% url 'openoni_search_pages_results' %}?date1={{date|date:"m/d/Y" }}&date2={{date|date:"m/d/Y"}}/'>{{ heading }}</a>
       </h3>
       <p>{{ date|date:"F j, Y" }}</p>
       <div class="featured_content" id="featured_content">

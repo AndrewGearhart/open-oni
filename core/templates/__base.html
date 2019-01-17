@@ -1,4 +1,5 @@
   <!DOCTYPE html>
+{% load sass_tags %}
 {% load static from staticfiles %}
 {% load humanize %}
 
@@ -30,8 +31,9 @@
 
       <!-- Local CSS -->
       <link href="{% static 'css/highlights.css' %}" rel="stylesheet" media="screen">
-      <link href="{% static 'css/tablesort.css' %}" rel="stylesheet" media="screen">
-      <link href="{% static 'css/main.css' %}" rel="stylesheet" media="screen">
+      <link href="{% sass_src 'css/tablesort.scss' %}" rel="stylesheet" />
+      <link href="{% static 'css/a11y.css' %}" rel="stylesheet" media="screen">
+      <link href="{% sass_src 'css/main.scss' %}" rel="stylesheet" media="screen">
     {% endblock head_page_css %}
 
     <!-- ===========
@@ -90,7 +92,7 @@
       Navbar
       ============= -->
         {% block navbar %}
-        <nav class="navbar navbar-inverse header_navbar">
+        <nav class="navbar {% block navbar_classes %}navbar-inverse header_navbar{% endblock navbar_classes %}">
           <div class="container">
             <!-- Brand and toggle get grouped for better mobile display -->
             <div class="navbar-header">
@@ -129,8 +131,9 @@
                   <input class="form-control" type="text" name="proxtext" placeholder="search words">
                 </div><!-- /form-group -->
 
-                <button type="submit" class="btn btn-default">
-                  <span class="glyphicon glyphicon-search" aria-hidden="true"><span class="search_text">Search</span></span>
+                <button type="submit" class="btn btn-primary">
+                  <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+                  <span class="search_text">Search</span>
                 </button>
               </form>
               {% endblock navbar_search %}

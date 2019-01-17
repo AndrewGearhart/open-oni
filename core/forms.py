@@ -7,9 +7,9 @@ from django.core.cache import cache
 from django.db.models import Min, Max
 
 from core import models
+from core.utils.utils import fulltext_range
 
-MIN_YEAR = 1860
-MAX_YEAR = 1922
+# min and max year set in utils.py
 DAY_CHOICES = [(i, i) for i in range(1,32)]
 MONTH_CHOICES = ((1, u'Jan',), (2, u'Feb',), (3, u'Mar',),
                  (4, u'Apr',), (5, u'May',), (6, u'Jun',),
@@ -31,10 +31,10 @@ FREQUENCY_CHOICES = (
 )
 
 PROX_CHOICES = (
-    ("5", "5"),
-    ("10", "10"),
-    ("50", "50"),
-    ("100", "100"),
+    ("5", "5 words"),
+    ("10", "10 words"),
+    ("50", "50 words"),
+    ("100", "100 words"),
 )
 
 RESULT_ROWS = (
@@ -54,6 +54,15 @@ def _distinct_values(model, field, initial_label=None):
     values = model.objects.values(field).distinct().order_by(field)
     options = [("", initial_label)] if initial_label else []
     options.extend((v[field], v[field]) for v in values)
+    return options
+
+def _distinct_title_languages():
+    values = models.Title.objects.filter(has_issues=True).values("languages").distinct().order_by("languages")
+    options = [("", "All")]
+    for value in values:
+        lang_code = value["languages"]
+        lang = models.Language.objects.get(code=lang_code).name
+        options.append((lang, lang))
     return options
 
 def _titles_states():
@@ -87,30 +96,8 @@ def _titles_states():
     return (titles, states)
 
 
-def _fulltext_range():
-    fulltext_range = cache.get('fulltext_range')
-    if not fulltext_range:
-        # get the maximum and minimum years that we have content for
-        issue_dates = models.Issue.objects.all().aggregate(min_date=Min('date_issued'),
-                                                           max_date=Max('date_issued'))
-
-        # when there is no content these may not be set
-        if issue_dates['min_date']:
-            min_year = issue_dates['min_date'].year
-        else:
-            min_year = MIN_YEAR
-        if issue_dates['max_date']:
-            max_year = issue_dates['max_date'].year
-        else:
-            max_year = MAX_YEAR
-
-        fulltext_range = (min_year, max_year)
-        cache.set('fulltext_range', fulltext_range)
-    return fulltext_range
-
-
 class CityForm(forms.Form):
-    city = fields.ChoiceField(choices=[])
+    city = fields.ChoiceField(choices=[], required=False)
     city.widget.attrs["class"] = "form-control"
 
     def __init__(self, *args, **kwargs):
@@ -126,18 +113,18 @@ class CityForm(forms.Form):
 
 
 class SearchPagesFormBase(forms.Form):
-    state = fields.ChoiceField(choices=[])
-    date1 = fields.ChoiceField(choices=[])
-    date2 = fields.ChoiceField(choices=[])
-    proxtext = fields.CharField()
-    issue_date = fields.BooleanField()
+    state = fields.ChoiceField(choices=[], required=False)
+    date1 = fields.ChoiceField(choices=[], required=False)
+    date2 = fields.ChoiceField(choices=[], required=False)
+    proxtext = fields.CharField(required=False)
+    issue_date = fields.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super(SearchPagesFormBase, self).__init__(*args, **kwargs)
 
         self.titles, self.states = _titles_states()
 
-        fulltextStartYear, fulltextEndYear = _fulltext_range()
+        fulltextStartYear, fulltextEndYear = fulltext_range()
 
         self.years = [(year, year) for year in range(fulltextStartYear, fulltextEndYear + 1)]
         self.fulltextStartYear = fulltextStartYear
@@ -166,33 +153,32 @@ class SearchResultsForm(forms.Form):
 
 class SearchPagesForm(SearchPagesFormBase):
     # locations
-    city = fields.ChoiceField(label="City")
-    county = fields.ChoiceField(label="County")
-    state = fields.ChoiceField(label="State")
+    city = fields.ChoiceField(label="City", required=False)
+    county = fields.ChoiceField(label="County", required=False)
+    state = fields.ChoiceField(label="State", required=False)
     # date
-    date1 = fields.CharField()
-    date2 = fields.CharField()
-    date_day = fields.ChoiceField(choices=DAY_CHOICES)
-    date_month = fields.ChoiceField(choices=MONTH_CHOICES)
+    date1 = fields.CharField(required=False)
+    date2 = fields.CharField(required=False)
+    date_day = fields.ChoiceField(choices=DAY_CHOICES, required=False)
+    date_month = fields.ChoiceField(choices=MONTH_CHOICES, required=False)
     # text
-    andtext = fields.CharField(label="All of the words")
-    ortext = fields.CharField(label="Any of the words")
-    phrasetext = fields.CharField(label="With the phrase")
-    proxtext = fields.CharField(label="Words near each other")
-    proxdistance = fields.ChoiceField(choices=PROX_CHOICES)
+    andtext = fields.CharField(label="All of the words", required=False)
+    ortext = fields.CharField(label="Any of the words", required=False)
+    phrasetext = fields.CharField(label="With the phrase", required=False)
+    proxtext = fields.CharField(label="Words", required=False)
+    proxdistance = fields.ChoiceField(choices=PROX_CHOICES, label="Distance",
+                                      required=False)
     # misc
-    lccn = fields.CharField(label="LCCN")
-    sequence = fields.CharField(label="Page Number")
-    titles = fields.MultipleChoiceField(choices=[])
+    lccn = fields.MultipleChoiceField(choices=[], required=False)
     # filters
-    frequency = fields.ChoiceField(label="Frequency")
-    language = fields.ChoiceField(label="Language")
+    frequency = fields.ChoiceField(label="Frequency", required=False)
+    language = fields.ChoiceField(label="Language", required=False)
 
     form_control_items = [
         city, county, state, 
         date1, date2, date_day, date_month,
         andtext, ortext, phrasetext, proxtext, proxdistance,
-        lccn, sequence, titles,
+        lccn,
         language, frequency
     ]
     for item in form_control_items:
@@ -203,40 +189,42 @@ class SearchPagesForm(SearchPagesFormBase):
 
         self.date = self.data.get('date1', '')
 
-        self.fields["titles"].widget.attrs.update({'size': '8'})
-        self.fields["titles"].choices = self.titles
-        lang_choices = [("", "All"), ]
-        lang_choices.extend((l, models.Language.objects.get(code=l).name) for l in settings.SOLR_LANGUAGES)
-        self.fields["language"].choices = lang_choices
+        self.fields["lccn"].widget.attrs.update({'size': '8'})
+        self.fields["lccn"].choices = self.titles
+        self.fields["language"].choices = _distinct_title_languages()
 
         # locations
 
-        self.fields["city"].choices = _distinct_values(models.Place, "city", "City")
-        self.fields["county"].choices = _distinct_values(models.Place, "county", "County")
-        self.fields["state"].choices = _distinct_values(models.Place, "state", "State")
+        self.fields["city"].choices = _distinct_values(models.Place, "city", "All")
+        self.fields["county"].choices = _distinct_values(models.Place, "county", "All")
+        self.fields["state"].choices = _distinct_values(models.Place, "state", "All")
 
         # filters
-        self.fields["frequency"].choices = _distinct_values(models.Title, "frequency", "Select")
+        self.fields["frequency"].choices = _distinct_values(models.Title, "frequency", "All")
 
 
 class SearchTitlesForm(forms.Form):
-    state = fields.ChoiceField(choices=[], initial="")
-    county = fields.ChoiceField(choices=[], initial="")
-    city = fields.ChoiceField(choices=[], initial="")
-    year1 = fields.ChoiceField(choices=[], label="from")
-    year2 = fields.ChoiceField(choices=[], label="to")
-    terms = fields.CharField(max_length=255)
-    frequency = fields.ChoiceField(choices=FREQUENCY_CHOICES, initial="", label="Frequency:")
-    language = fields.ChoiceField(choices=[], initial="", label="Language:")
-    ethnicity = fields.ChoiceField(choices=[], initial="", label="Ethnicity Press:")
-    labor = fields.ChoiceField(choices=[], initial="", label="Labor Press:")
-    material_type = fields.ChoiceField(choices=[], initial="", label="Material Type:")
-    lccn = fields.CharField(max_length=255, label="LCCN:")
+    state = fields.ChoiceField(choices=[], initial="", required=False)
+    county = fields.ChoiceField(choices=[], initial="", required=False)
+    city = fields.ChoiceField(choices=[], initial="", required=False)
+    year1 = fields.ChoiceField(choices=[], label="from", required=False)
+    year2 = fields.ChoiceField(choices=[], label="to", required=False)
+    terms = fields.CharField(max_length=255, required=False)
+    frequency = fields.ChoiceField(choices=FREQUENCY_CHOICES, initial="",
+                                   label="Frequency:", required=False)
+    language = fields.ChoiceField(choices=[], initial="", label="Language:",
+                                  required=False)
+    ethnicity = fields.ChoiceField(choices=[], initial="",
+                                   label="Ethnicity Press:", required=False)
+    labor = fields.ChoiceField(choices=[], initial="", label="Labor Press:",
+                               required=False)
+    material_type = fields.ChoiceField(choices=[], initial="",
+                                       label="Material Type:", required=False)
 
     form_control_items = [
         state, county, city, terms,
         frequency, language, ethnicity, labor,
-        material_type, lccn
+        material_type
     ]
     for item in form_control_items:
         item.widget.attrs["class"] = "form-control"

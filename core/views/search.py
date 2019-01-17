@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.conf import settings
 from django.core import urlresolvers
 from django.core.paginator import InvalidPage
-from django.shortcuts import render_to_response
+from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
 from django.template import RequestContext
 
@@ -74,10 +74,8 @@ def search_pages_results(request, view_type='gallery'):
     if format == 'atom':
         feed_url = settings.BASE_URL + request.get_full_path()
         updated = rfc3339(datetime.datetime.now())
-        return render_to_response('search/search_pages_results.xml',
-                                  dictionary=locals(),
-                                  context_instance=RequestContext(request),
-                                  content_type='application/atom+xml')
+        return render(request, 'search/search_pages_results.xml', locals(),
+                      content_type='application/atom+xml')
     elif format == 'json':
         results = {
             'startIndex': start,
@@ -105,20 +103,24 @@ def search_pages_results(request, view_type='gallery'):
     # get an pseudo english version of the query
     english_search = paginator.englishify()
 
-    # get some stuff from the query string for use in the form
-    titles = query.getlist('titles')
-    state = query.getlist('state')
-
     form = forms.SearchResultsForm({"rows": rows, "sort": sort})
     if view_type == "list":
         template = "search/search_pages_results_list.html"
     else:
         template = "search/search_pages_results.html"
     page_list = []
+    lccns = query.getlist("lccn")
+    titles = []
+    for lccn in lccns:
+        name = str(models.Title.objects.get(lccn=lccn))
+        titles.append({
+            'abbrev': name[:24] +'...' if len(name) > 24 else name,
+            'lccn': lccn,
+            'name': name,
+        })
     for count in range(len(page.object_list)):
         page_list.append((count + start, page.object_list[count]))
-    return render_to_response(template, dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, template, locals())
 
 @cache_page(settings.DEFAULT_TTL_SECONDS)
 def search_advanced(request):
@@ -126,8 +128,7 @@ def search_advanced(request):
     crumbs = list(settings.BASE_CRUMBS)
     template = "search/search_advanced.html"
     page_title = 'Advanced Search'
-    return render_to_response(template, dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, template, locals())
 
 
 @cache_page(settings.DEFAULT_TTL_SECONDS)
@@ -142,26 +143,21 @@ def search_titles(request):
     crumbs = list(settings.BASE_CRUMBS)
     template = "search/titles.html"
     page_title = 'Search Titles'
-    return render_to_response(template, dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, template, locals())
 
 
 @cache_page(settings.DEFAULT_TTL_SECONDS)
 def search_titles_opensearch(request):
     host = request.get_host()
-    return render_to_response('search/search_titles_opensearch.xml',
-                              content_type='application/opensearchdescription+xml',
-                              dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, 'search/search_titles_opensearch.xml', locals(),
+                  content_type='application/opensearchdescription+xml')
 
 
 @cache_page(settings.DEFAULT_TTL_SECONDS)
 def search_pages_opensearch(request):
     host = request.get_host()
-    return render_to_response('search/search_pages_opensearch.xml',
-                              content_type='application/opensearchdescription+xml',
-                              dictionary=locals(),
-                              context_instance=RequestContext(request))
+    return render(request, 'search/search_pages_opensearch.xml', locals(),
+                  content_type='application/opensearchdescription+xml')
 
 
 @cors

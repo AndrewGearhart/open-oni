@@ -1,10 +1,10 @@
 import os
 
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.conf import settings
 from django.utils import cache
 
-from views import home, browse, directory, image, reports, search, static
+from views import home, browse, directory, reports, search, static
 
 handler404 = 'django.views.defaults.page_not_found'
 handler500 = 'django.views.defaults.server_error'
@@ -30,15 +30,11 @@ urlpatterns = [
         cache_page(home.frontpages, settings.DEFAULT_TTL_SECONDS),
         name="openoni_frontpages_date_json"),
 
+    # Served direct by Apache, but Django needs to provide reversed URL
+    # as data-coordinates_url attribute in page.html, thus 'static.empty' view
     # example: /lccn/sn85066387/1907-03-17/ed-1/seq-4/coordinates/
     url(r'^lccn/(?P<lccn>\w+)/(?P<date>\d{4}-\d{2}-\d{2})/ed-(?P<edition>\d+)/seq-(?P<sequence>\d+)/coordinates/$',
-        cache_page(image.coordinates, settings.PAGE_IMAGE_TTL_SECONDS),
-        name="openoni_page_coordinates"),
-
-    # example: /lccn/sn85066387/1907-03-17/ed-1/seq-4/coordinates/;words=corn+peas+cigars
-    url(r'^lccn/(?P<lccn>\w+)/(?P<date>\d{4}-\d{2}-\d{2})/ed-(?P<edition>\d+)/seq-(?P<sequence>\d+)/coordinates/;words=(?P<words>.+)$',
-        cache_page(image.coordinates, settings.DEFAULT_TTL_SECONDS),
-        name="openoni_page_coordinates_words"),
+        static.empty, name="openoni_page_coordinates"),
 
     url(r'^about/$', static.about, name="openoni_about"),
 
@@ -56,8 +52,8 @@ urlpatterns = [
     # example: /issues/
     url(r'^issues/$', browse.issues, name="openoni_issues"),
 
-    # example: /issues/1900/
-    url(r'^issues/(?P<year>\d{4})/$', browse.issues, name="openoni_issues_for_year"),
+    # example: /issues/1900
+    url(r'^issues/(?P<year>\d{4})$', browse.issues, name="openoni_issues_for_year"),
 
     # example: /lccn/sn85066387/issues/
     url(r'^lccn/(?P<lccn>\w+)/issues/$', browse.issues_title, name="openoni_issues_title"),
@@ -149,17 +145,8 @@ urlpatterns = [
     url(r'^newspapers/$', directory.newspapers, name='openoni_newspapers'),
     url(r'^newspapers/feed/$', directory.newspapers_atom, name='openoni_newspapers_atom'),
 
-    url(r'^newspapers.(?P<format>csv)$', directory.newspapers,
-        name='openoni_newspapers_format'),
-    url(r'^newspapers.(?P<format>txt)$', directory.newspapers,
-        name='openoni_newspapers_format'),
     url(r'^newspapers.(?P<format>json)$', directory.newspapers,
         name='openoni_newspapers_format'),
-
-    url(r'^newspapers/(?P<state>[^/;]+)/$', directory.newspapers,
-        name='openoni_newspapers_state'),
-    url(r'^newspapers/(?P<state>[^/;]+)\.(?P<format>json)$', directory.newspapers,
-        name='openoni_newspapers_json'),
 
     url('search/pages/opensearch.xml', search.search_pages_opensearch,
         name='openoni_search_pages_opensearch'),
